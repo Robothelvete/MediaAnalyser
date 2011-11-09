@@ -6,18 +6,23 @@ Module Spider
 		Dim oTCP As New Publ.TCP
 		Dim oFirstpageDoc As New HtmlAgilityPack.HtmlDocument
 
-		Dim strFirstpageHTML As String = oTCP.GetHTML("http://www.svd.se/")
+		Dim strFirstpageHTML As String = oTCP.GetHTML("http://www.dn.se/")
 		oFirstpageDoc.LoadHtml(strFirstpageHTML)
 
-		Dim oAnchors As HtmlAgilityPack.HtmlNodeCollection = oFirstpageDoc.DocumentNode.SelectNodes("//div[@class='newsarticle']//a")
+		Dim oAnchors As HtmlAgilityPack.HtmlNodeCollection = oFirstpageDoc.DocumentNode.SelectNodes("//div[@class='onboard bi3dColumn']//div[contains(concat(' ',normalize-space(@class),' '),' teaser ')]//a")
 
 		Dim oLinks As List(Of String) = GetLinks(oAnchors)
 
-		'Dim oWriter As New Xml.XmlTextWriter("C:\codeprojects\dotNet\MediaAnalysis\xml\svd\articles.xml", Nothing)
+		For Each strLink In oLinks
+			'Console.WriteLine(strLink)
+		Next
+
+
+		Dim oWriter As New Xml.XmlTextWriter("C:\codeprojects\dotNet\MediaAnalysis\xml\svd\articles.xml", Nothing)
 		Dim oXMLDoc As New Xml.XmlDocument
-		oXMLDoc.Load("C:\codeprojects\dotNet\MediaAnalysis\xml\svd\articles.xml")
+		oXMLDoc.Load("C:\codeprojects\dotNet\MediaAnalysis\xml\dn\articles.xml")
 
-
+		'Dim intCounter As Integer = 0
 		For Each strLink In oLinks
 			'Console.WriteLine(strLink)
 			Dim strHtml As String = oTCP.GetHTML(strLink)
@@ -31,9 +36,12 @@ Module Spider
 			oArticle.strArticle = System.Web.HttpUtility.HtmlDecode(oArticle.strArticle)
 
 			WriteToFile(oXMLDoc, oArticle)
-			oXMLDoc.Save("C:\codeprojects\dotNet\MediaAnalysis\xml\svd\articles.xml")
-			System.Threading.Thread.Sleep(1500)
-			'Exit For
+			oXMLDoc.Save("C:\codeprojects\dotNet\MediaAnalysis\xml\dn\articles.xml")
+			System.Threading.Thread.Sleep(500)
+			'If intCounter = 3 Then
+			'	Exit For
+			'End If
+			'intCounter = intCounter + 1
 		Next
 
 
@@ -85,13 +93,14 @@ Module Spider
 			'Tvätta
 			If tmpString.Contains("#") Then tmpString = tmpString.Remove(tmpString.IndexOf("#"))
 
-			If tmpString.EndsWith(".svd") Then 'Ta bara artiklar
-				If Not oLinks.Contains(tmpString) Then 'Inga dubbla entries
-					oLinks.Add(tmpString)
+			'If tmpString.EndsWith(".svd") Then 'Ta bara artiklar
+			If tmpString.StartsWith("/") Then
+				If Not oLinks.Contains("http://www.dn.se" & tmpString) Then	'Inga dubbla entries
+					oLinks.Add("http://www.dn.se" & tmpString)
 				End If
 			End If
 
-			
+
 		Next
 		Return oLinks
 	End Function
@@ -108,10 +117,10 @@ Module Spider
 		Dim oArticle As New Article
 
 
-		Try
-			oArticle.strMetaData = oRootNode.SelectSingleNode("p[@class='article-metadata']").InnerText.Trim(" ", vbNewLine, vbCrLf, vbCr, vbLf)
-		Catch ex As NullReferenceException
-		End Try
+		'Try
+		'	oArticle.strMetaData = oRootNode.SelectSingleNode("p[@class='article-metadata']").InnerText.Trim(" ", vbNewLine, vbCrLf, vbCr, vbLf)
+		'Catch ex As NullReferenceException
+		'End Try
 
 		Try
 			oArticle.strRubrik = oRootNode.SelectSingleNode("h1").InnerText.Trim(" ", vbNewLine, vbCrLf, vbCr, vbLf)
@@ -119,45 +128,50 @@ Module Spider
 		End Try
 
 		Try
-			oArticle.strIngress = oRootNode.SelectSingleNode("p[@class='preamble']").InnerText.Trim(" ", vbNewLine, vbCrLf, vbCr, vbLf)
+			oArticle.strIngress = oRootNode.SelectSingleNode("div[@class='article-wrapper']/div[@class='content-before']/div[@class='preamble']/p").InnerText.Trim(" ", vbNewLine, vbCrLf, vbCr, vbLf)
 		Catch ex As NullReferenceException
 		End Try
 
+		Dim oNodes As HtmlNodeCollection = oDoc.GetElementbyId("contentBody").SelectNodes("div[@class='content-paragraphs']/p")
 
-		Dim oNode As HtmlNode = oRootNode.SelectSingleNode("div[@class='articlebody']/div[@class='articletext']")
+		For Each oNode In oNodes
+			oArticle.strArticle = oArticle.strArticle & oNode.InnerText.Trim(" ", vbNewLine, vbCrLf, vbCr, vbLf)
+		Next
 
-		'oNode = oNode.RemoveChild(oNode.SelectSingleNode("/div[@class='article-ad']"))
+		'Dim oNode As HtmlNode = oRootNode.SelectSingleNode("div[@class='articlebody']/div[@class='articletext']")
 
-		Try
-			Do While oNode.SelectNodes("blockquote").Count > 0
-				oNode.RemoveChild(oNode.SelectSingleNode("blockquote"))
-			Loop
+		''oNode = oNode.RemoveChild(oNode.SelectSingleNode("/div[@class='article-ad']"))
 
-		Catch ex As NullReferenceException
-		End Try
+		'Try
+		'	Do While oNode.SelectNodes("blockquote").Count > 0
+		'		oNode.RemoveChild(oNode.SelectSingleNode("blockquote"))
+		'	Loop
 
-		Try
-			Do While oNode.SelectNodes("div").Count > 0
-				oNode.RemoveChild(oNode.SelectSingleNode("div"))
-			Loop
-		Catch ex As NullReferenceException
-		End Try
+		'Catch ex As NullReferenceException
+		'End Try
 
-		Try
-			Do While oNode.SelectNodes("h2").Count > 0
-				oNode.RemoveChild(oNode.SelectSingleNode("h2"))
-			Loop
-		Catch ex As NullReferenceException
-		End Try
+		'Try
+		'	Do While oNode.SelectNodes("div").Count > 0
+		'		oNode.RemoveChild(oNode.SelectSingleNode("div"))
+		'	Loop
+		'Catch ex As NullReferenceException
+		'End Try
 
-		Try
-			Do While oNode.SelectNodes("comment()").Count > 0
-				oNode.RemoveChild(oNode.SelectSingleNode("comment()"))
-			Loop
-		Catch ex As NullReferenceException
-		End Try
+		'Try
+		'	Do While oNode.SelectNodes("h2").Count > 0
+		'		oNode.RemoveChild(oNode.SelectSingleNode("h2"))
+		'	Loop
+		'Catch ex As NullReferenceException
+		'End Try
 
-		oArticle.strArticle = oNode.InnerText.Trim(" ", vbNewLine, vbCrLf, vbCr, vbLf)
+		'Try
+		'	Do While oNode.SelectNodes("comment()").Count > 0
+		'		oNode.RemoveChild(oNode.SelectSingleNode("comment()"))
+		'	Loop
+		'Catch ex As NullReferenceException
+		'End Try
+
+		'oArticle.strArticle = oNode.InnerText.Trim(" ", vbNewLine, vbCrLf, vbCr, vbLf)
 
 		Return oArticle
 	End Function
