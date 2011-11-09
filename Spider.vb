@@ -18,7 +18,9 @@ Module Spider
 			Dim oDoc As New HtmlDocument
 			oDoc.LoadHtml(strHtml)
 
+			Dim oArticle = GetArticle(oDoc)
 
+			'Eh ja, sen då?
 		Next
 
 	End Sub
@@ -49,11 +51,38 @@ Module Spider
 		Return oLinks
 	End Function
 
+	''' <summary>
+	''' Parsa och lägg in informationen på ett hanterbart sätt
+	''' </summary>
+	''' <param name="oDoc"></param>
+	''' <returns></returns>
+	''' <remarks></remarks>
 	Public Function GetArticle(ByRef oDoc As HtmlDocument) As Article
 		Dim oRootNode As HtmlNode = oDoc.GetElementbyId("article-content")
 		Dim oArticle As New Article
 
 		oArticle.strMetaData = oRootNode.SelectSingleNode("/p[@class='article-metadata']").InnerText
+		oArticle.strRubrik = oRootNode.SelectSingleNode("/h1").InnerText
+		oArticle.strIngress = oRootNode.SelectSingleNode("/p[@class='preamble']").InnerText
+
+		Dim oNode As HtmlNode = oRootNode.SelectSingleNode("/div[@class='articlebody']/div[@class='articletext']")
+
+		'oNode = oNode.RemoveChild(oNode.SelectSingleNode("/div[@class='article-ad']"))
+
+
+		Do While oNode.SelectNodes("/blockquote").Count > 0
+			oNode = oNode.RemoveChild(oNode.SelectSingleNode("/blockquote"))
+		Loop
+
+		Do While oNode.SelectNodes("/div").Count > 0
+			oNode = oNode.RemoveChild(oNode.SelectSingleNode("/div"))
+		Loop
+
+		Do While oNode.SelectNodes("/h2").Count > 0
+			oNode = oNode.RemoveChild(oNode.SelectSingleNode("/h2"))
+		Loop
+
+		oArticle.strArticle = oNode.InnerText
 
 		Return oArticle
 	End Function
